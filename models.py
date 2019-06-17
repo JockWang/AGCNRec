@@ -29,7 +29,13 @@ class Model(object):
 
         self.loss = 0
         self.accuracy = 0
+        self.mrr = 0
         self.hrat5 = 0
+        self.hrat10 = 0
+        self.hrat20 = 0
+        self.ndcg5 = 0
+        self.ndcg10 = 0
+        self.ndcg20 = 0
         self.optimizer = None
         self.opt_op = None
 
@@ -54,8 +60,10 @@ class Model(object):
 
         # Build metrics
         self._loss()
-        # self._accuracy()
-        self._hrat5()
+        self._hrat()
+        self._ndcg()
+        self._accuracy()
+        self._mrr()
 
         self.opt_op = self.optimizer.minimize(self.loss)
 
@@ -69,7 +77,13 @@ class Model(object):
     def _accuracy(self):
         raise NotImplementedError
 
-    def _hrat5(self):
+    def _hrat(self):
+        raise NotImplementedError
+
+    def _mrr(self):
+        raise NotImplementedError
+
+    def _ndcg(self):
         raise NotImplementedError
 
     def save(self, sess=None):
@@ -97,6 +111,7 @@ class GCN(Model):
         self.placeholders = placeholders
         self.rating = placeholders['rating']
         self.negative = placeholders['negative']
+        self.length = int(self.rating.shape[0])
 
         self.optimizer = tf.train.AdamOptimizer(learning_rate=FLAGS.learning_rate)
         self.build()
@@ -107,14 +122,23 @@ class GCN(Model):
             for var in self.layers[i].vars.values():
                 self.loss += FLAGS.weight_decay * tf.nn.l2_loss(var)
         # RMSE
-        self.loss += rmse_loss(rating=self.rating,rate=self.outputs,length=int(self.rating.shape[0]))
+        self.loss += rmse_loss(rating=self.rating,rate=self.outputs, length=self.length)
 
-    # def _accuracy(self):
-    #     self.accuracy = auc(self.outputs, self.placeholders['labels'],
-    #                                     self.placeholders['labels_mask'])
+    def _accuracy(self):
+        self.accuracy = auc(self.outputs, self.negative, length=self.length)
 
-    def _hrat5(self):
-        self.hrat5 = hr(self.outputs, self.negative, length=int(self.rating.shape[0]), k=20)
+    def _ndcg(self):
+        self.ndcg5 = ndcg(self.outputs, self.negative, length=self.length, k=5)
+        self.ndcg10 = ndcg(self.outputs, self.negative, length=self.length, k=10)
+        self.ndcg20 = ndcg(self.outputs, self.negative, length=self.length, k=20)
+
+    def _hrat(self):
+        self.hrat5 = hr(self.outputs, self.negative, length=self.length, k=5)
+        self.hrat10 = hr(self.outputs, self.negative, length=self.length, k=10)
+        self.hrat20 = hr(self.outputs, self.negative, length=self.length, k=20)
+
+    def _mrr(self):
+        self.mrr = mrr(self.outputs, self.negative, length=int(self.rating.shape[0]))
 
     def _build(self):
 
