@@ -37,7 +37,7 @@ placeholders = {
 }
 
 # Create model
-model = GCN(placeholders=placeholders,input_dim=features.shape[1])
+model = GCN(placeholders=placeholders, input_dim=features.shape[1], num_support=num_support)
 
 # Initialize session
 sess = tf.Session()
@@ -53,6 +53,6 @@ for epoch in range(FLAGS.epochs):
     feed_dict.update({placeholders['dropout']: FLAGS.dropout})
 
     # if epoch%100 == 0:
-    _, loss, hrat5, hrat10, hrat20, ndcg5, ndcg10, ndcg20, mrr, auc = sess.run([model.opt_op, model.loss, model.hrat5, model.hrat10, model.hrat20, model.ndcg5, model.ndcg10, model.ndcg20, model.mrr, model.accuracy],feed_dict=feed_dict)
+    _, loss, hrat1, hrat5, hrat10, hrat20, ndcg5, ndcg10, ndcg20, mrr, auc = sess.run([model.opt_op, model.loss, model.hrat1, model.hrat5, model.hrat10, model.hrat20, model.ndcg5, model.ndcg10, model.ndcg20, model.mrr, model.accuracy],feed_dict=feed_dict)
     if epoch%50 == 0:
-        print('Train:'+str(epoch)+' Loss:'+str(loss)+' HR@5:'+str(hrat5)+' HR@10:'+str(hrat10)+' HR@20:'+str(hrat20)+' nDCG5:'+str(ndcg5)+' nDCG10:'+str(ndcg10)+' nDCG20:'+str(ndcg20)+' MRR:'+str(mrr)+' AUC:'+str(auc))
+        print('Train:'+str(epoch)+' Loss:'+str(loss)+' HR@1:'+str(hrat1)+' HR@5:'+str(hrat5)+' HR@10:'+str(hrat10)+' HR@20:'+str(hrat20)+' nDCG5:'+str(ndcg5)+' nDCG10:'+str(ndcg10)+' nDCG20:'+str(ndcg20)+' MRR:'+str(mrr)+' AUC:'+str(auc))

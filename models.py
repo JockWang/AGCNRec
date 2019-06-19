@@ -30,12 +30,15 @@ class Model(object):
         self.loss = 0
         self.accuracy = 0
         self.mrr = 0
+        self.hrat1 = 0
         self.hrat5 = 0
         self.hrat10 = 0
         self.hrat20 = 0
+        self.ndcg1 = 0
         self.ndcg5 = 0
         self.ndcg10 = 0
         self.ndcg20 = 0
+        self.alphas = None
         self.optimizer = None
         self.opt_op = None
 
@@ -53,6 +56,7 @@ class Model(object):
             hidden = layer(self.activations[-1])
             self.activations.append(hidden)
         self.outputs = self.activations[-1]
+        self.alphas = self.layers[3].alphas
 
         # Store model variables for easy access
         # variables = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope=self.name)
@@ -102,10 +106,10 @@ class Model(object):
         print("Model restored from file: %s" % save_path)
 
 class GCN(Model):
-    def __init__(self, placeholders, input_dim, **kwargs):
+    def __init__(self, placeholders, input_dim, num_support, **kwargs):
         super(GCN, self).__init__(**kwargs)
 
-        self.inputs = placeholders['features']
+        self.inputs = [placeholders['features']*num_support]
         self.input_dim = input_dim
         self.output_dim = FLAGS.output_dim
         self.placeholders = placeholders
@@ -128,11 +132,13 @@ class GCN(Model):
         self.accuracy = auc(self.outputs, self.negative, length=self.length)
 
     def _ndcg(self):
+        self.ndcg1 = ndcg(self.outputs, self.negative, length=self.length, k=1)
         self.ndcg5 = ndcg(self.outputs, self.negative, length=self.length, k=5)
         self.ndcg10 = ndcg(self.outputs, self.negative, length=self.length, k=10)
         self.ndcg20 = ndcg(self.outputs, self.negative, length=self.length, k=20)
 
     def _hrat(self):
+        self.hrat1 = hr(self.outputs, self.negative, length=self.length, k=1)
         self.hrat5 = hr(self.outputs, self.negative, length=self.length, k=5)
         self.hrat10 = hr(self.outputs, self.negative, length=self.length, k=10)
         self.hrat20 = hr(self.outputs, self.negative, length=self.length, k=20)
@@ -163,6 +169,8 @@ class GCN(Model):
                                             act=tf.nn.relu,
                                             dropout=False,
                                             logging=self.logging))
+        self.layers.append(SimpleAttLayer(attention_size=1,
+                                          time_major=False))
         self.layers.append(RateLayer(placeholders=self.placeholders,
                                      user_dim=int(self.rating.shape[0]),
                                      item_dim=int(self.rating.shape[1])))

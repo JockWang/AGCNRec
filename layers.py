@@ -113,22 +113,22 @@ class GraphConvolution(Layer):
             self._log_vars()
 
     def _call(self, inputs):
-        x = inputs
-
-        # dropout
-        x = tf.nn.dropout(x, 1-self.dropout)
-
-        # convolve
         supports = list()
         for i in range(len(self.support)):
+            x = inputs[i]
+
+        # dropout
+            x = tf.nn.dropout(x, 1-self.dropout)
+
+        # convolve
             if not self.featureless:
                 pre_sup = dot(x, self.vars['weights_' + str(i)],)
             else:
                 pre_sup = self.vars['weights_' + str(i)]
             support = dot(self.support[i], pre_sup)
             supports.append(support)
-        output = tf.add_n(supports)
-
+        # output = tf.add_n(supports)
+        output = supports
         # bias
         if self.bias:
             output += self.vars['bias']
@@ -155,3 +155,43 @@ class RateLayer():
         rate_matrix += (self.vars['alpha1']*tf.matmul(self.user,self.vars['user_specific']))
         rate_matrix += (self.vars['alpha2']*tf.matmul(tf.transpose(self.vars['item_specific']),tf.transpose(self.item)))
         return rate_matrix
+
+class SimpleAttLayer():
+    def __init__(self, attention_size, time_major=False):
+        self.attention_size = attention_size
+        self.time_major = time_major
+        self.vars = {}
+
+    def __call__(self, inputs):
+        if isinstance(inputs, tuple):
+            # In case of Bi-RNN, concatenate the forward and the backward RNN outputs.
+            inputs = tf.concat(inputs, 2)
+
+        if self.time_major:
+            # (T,B,D) => (B,T,D)
+            inputs = tf.array_ops.transpose(inputs, [1, 0, 2])
+
+        hidden_size = inputs.shape[2].value  # D value - hidden size of the RNN layer
+
+        # Trainable parameters
+
+        with tf.variable_scope('v'):
+            # Applying fully connected layer with non-linear activation to each of the B*T timestamps;
+            #  the shape of `v` is (B,T,D)*(D,A)=(B,T,A), where A=attention_size
+            w_omega = tf.get_variable(initializer=tf.random_normal([hidden_size, self.attention_size], stddev=0.1), name='w_omega')
+            self.vars['w_omega'] = w_omega
+            b_omega = tf.get_variable(initializer=tf.random_normal([self.attention_size], stddev=0.1), name='b_omega')
+            self.vars['b_omega'] = b_omega
+            u_omega = tf.get_variable(initializer=tf.random_normal([self.attention_size], stddev=0.1), name='u_omega')
+            self.vars['u_omega'] = u_omega
+            v = tf.tanh(tf.tensordot(inputs, w_omega, axes=1) + b_omega)
+
+        # For each of the timestamps its vector of size A from `v` is reduced with `u` vector
+        vu = tf.tensordot(v, u_omega, axes=1, name='vu')  # (B,T) shape
+        alphas = tf.nn.softmax(vu, name='alphas')         # (B,T) shape
+        self.alphas = alphas
+
+        # Output of (Bi-)RNN is reduced with attention vector; the result has (B,D) shape
+        output = tf.reduce_sum(inputs * tf.expand_dims(alphas, -1), 1)
+
+        return output
