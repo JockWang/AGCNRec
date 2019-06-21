@@ -38,6 +38,7 @@ class Model(object):
         self.ndcg5 = 0
         self.ndcg10 = 0
         self.ndcg20 = 0
+        self.test = None
         self.alphas = None
         self.optimizer = None
         self.opt_op = None
@@ -52,8 +53,10 @@ class Model(object):
 
         # Build sequential layer model
         self.activations.append(self.inputs)
-        for layer in self.layers:
-            hidden = layer(self.activations[-1])
+        for i in range(len(self.layers)):
+            hidden = self.layers[i](self.activations[-1])
+            if i == 3:
+                self.test = hidden
             self.activations.append(hidden)
         self.outputs = self.activations[-1]
         self.alphas = self.layers[3].alphas
@@ -109,7 +112,7 @@ class GCN(Model):
     def __init__(self, placeholders, input_dim, num_support, **kwargs):
         super(GCN, self).__init__(**kwargs)
 
-        self.inputs = [placeholders['features']*num_support]
+        self.inputs = placeholders['features']
         self.input_dim = input_dim
         self.output_dim = FLAGS.output_dim
         self.placeholders = placeholders
@@ -154,7 +157,8 @@ class GCN(Model):
                                             act=tf.nn.relu,
                                             dropout=True,
                                             sparse_inputs=True,
-                                            logging=self.logging))
+                                            logging=self.logging,
+                                            name='first'))
 
         self.layers.append(GraphConvolution(input_dim=FLAGS.hidden1,
                                             output_dim=FLAGS.hidden2,
@@ -169,8 +173,8 @@ class GCN(Model):
                                             act=tf.nn.relu,
                                             dropout=False,
                                             logging=self.logging))
-        self.layers.append(SimpleAttLayer(attention_size=1,
-                                          time_major=False))
+        self.layers.append(SimpleAttLayer(attention_size=32,
+                                          time_major=True))
         self.layers.append(RateLayer(placeholders=self.placeholders,
                                      user_dim=int(self.rating.shape[0]),
                                      item_dim=int(self.rating.shape[1])))

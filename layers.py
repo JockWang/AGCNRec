@@ -115,7 +115,10 @@ class GraphConvolution(Layer):
     def _call(self, inputs):
         supports = list()
         for i in range(len(self.support)):
-            x = inputs[i]
+            if self.name == 'first':
+                x = inputs
+            else:
+                x = inputs[i]
 
         # dropout
             x = tf.nn.dropout(x, 1-self.dropout)
@@ -169,7 +172,7 @@ class SimpleAttLayer():
 
         if self.time_major:
             # (T,B,D) => (B,T,D)
-            inputs = tf.array_ops.transpose(inputs, [1, 0, 2])
+            inputs = tf.transpose(inputs, [1, 0, 2])
 
         hidden_size = inputs.shape[2].value  # D value - hidden size of the RNN layer
 
@@ -189,9 +192,9 @@ class SimpleAttLayer():
         # For each of the timestamps its vector of size A from `v` is reduced with `u` vector
         vu = tf.tensordot(v, u_omega, axes=1, name='vu')  # (B,T) shape
         alphas = tf.nn.softmax(vu, name='alphas')         # (B,T) shape
-        self.alphas = alphas
+        self.alphas = vu
 
         # Output of (Bi-)RNN is reduced with attention vector; the result has (B,D) shape
-        output = tf.reduce_sum(inputs * tf.expand_dims(alphas, -1), 1)
+        output = tf.reduce_sum(inputs*tf.expand_dims(alphas, -1), 1)
 
         return output

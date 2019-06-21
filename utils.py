@@ -14,13 +14,19 @@ def load_data():
     with open('./data/adjacency_matrix.p','rb') as source:
         adjacency = pkl.load(source).todense()
     adjacency = preprocess_adj(adjacency)
+    with open('./data/UC.p','rb') as source:
+        uc = pkl.load(source).todense()
+    uc = preprocess_adj(uc)
     # with open('./data/end_test.p','rb') as source:
     #     test = pkl.load(source)
     with open('./data/user_action.p','rb') as source:
         user_action = pkl.load(source)
     negative = radom_negative_sample(user_action,rating.shape[1])
+    with open('./data/negative.p', 'wb') as source:
+        # negative = pkl.load(source)
+        pkl.dump(negative,source)
 
-    return rating,concept,features,adjacency,negative
+    return rating,concept,features,adjacency,negative,uc
 
 def preprocess_features(features):
     rowsum = np.array(features.sum(1))
@@ -54,7 +60,7 @@ def radom_negative_sample(user_action,item_size):
         i = 0
         while i < 99:
             t = random.randint(0,item_size-1)
-            if t not in user_action[u]:
+            if t != user_action[u][-1]:
                 sample.append([u, t])
                 i += 1
         sample.append([u, user_action[u][-1]])
